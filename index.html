@@ -83,6 +83,8 @@
         <aside class="sb">
             <div class="sc">
                 <div class="st">Import</div>
+                <div class="fg"><label class="fl">WiGLE API Key</label><input type="password" class="fi" id="wigle-api-key" placeholder="Enter API Key"></div>
+                <button class="btn bs" onclick="fetchFromWiGLE()" style="margin-bottom:0.5rem">Fetch My WiGLE Data</button>
                 <div class="uz" id="upload-zone"><div class="ut">+</div><div class="uh">Drop KML/CSV</div></div>
                 <input type="file" id="file-input" accept=".kml,.csv,.json" hidden>
                 <button class="btn bp" onclick="loadSampleData()">Load Sample</button>
@@ -323,6 +325,35 @@
             renderMap();
             renderNetworkList();
             showToast('Filters cleared', 'su');
+        }
+
+        function loadFromWiGLE() {
+            var apiKey = document.getElementById('wigle-api-key').value.trim();
+            if (!apiKey) {
+                showToast('Please enter your WiGLE API key', 'er');
+                return;
+            }
+            showLoading();
+            // Fetch user's discovered networks
+            var url = 'https://api.wigle.net/api/v2/stats/own';
+            fetch(url, {
+                headers: {
+                    'Authorization': 'Basic ' + btoa(apiKey + ':'),
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function(response) {
+                if (!response.ok) throw new Error('API request failed: ' + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                showToast('WiGLE stats loaded: ' + (data.results || []).length + ' entries', 'su');
+                hideLoading();
+            })
+            .catch(function(err) {
+                showToast('WiGLE fetch error: ' + err.message, 'er');
+                hideLoading();
+            });
         }
 
         function loadSampleData() {
