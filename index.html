@@ -84,7 +84,7 @@
             <div class="sc">
                 <div class="st">Import</div>
                 <div class="fg"><label class="fl">WiGLE API Key</label><input type="password" class="fi" id="wigle-api-key" placeholder="Enter API Key"></div>
-                <button class="btn bs" onclick="fetchFromWiGLE()" style="margin-bottom:0.5rem">Fetch My WiGLE Data</button>
+                <button class="btn bs" onclick="loadFromWiGLE()" style="margin-bottom:0.5rem">Fetch My WiGLE Data</button>
                 <div class="uz" id="upload-zone"><div class="ut">+</div><div class="uh">Drop KML/CSV</div></div>
                 <input type="file" id="file-input" accept=".kml,.csv,.json" hidden>
                 <button class="btn bp" onclick="loadSampleData()">Load Sample</button>
@@ -335,7 +335,7 @@
             }
             showLoading();
             // Fetch user's discovered networks
-            var url = 'https://api.wigle.net/api/v2/stats/own';
+            var url = 'https://api.wigle.net/api/v2/network/map';
             fetch(url, {
                 headers: {
                     'Authorization': 'Basic ' + btoa(apiKey + ':'),
@@ -347,7 +347,29 @@
                 return response.json();
             })
             .then(function(data) {
-                showToast('WiGLE stats loaded: ' + (data.results || []).length + ' entries', 'su');
+                // Parse WiGLE response to our format
+                var results = data.results || [];
+                if (results.length === 0) {
+                    showToast('No networks found', 'er');
+                    hideLoading();
+                    return;
+                }
+                allNetworks = results.map(function(n) {
+                    return {
+                        ssid: n.ssid || 'Unknown',
+                        bssid: n.bssid || '',
+                        lat: n.latitude,
+                        lon: n.longitude,
+                        signal: n.signal || -75,
+                        channel: n.channel || 0,
+                        security: n.encryption || n.authMode || 'Unknown'
+                    };
+                });
+                filteredNetworks = allNetworks.slice();
+                updateStats();
+                renderMap();
+                renderNetworkList();
+                showToast('Loaded ' + allNetworks.length + ' networks from WiGLE', 'su');
                 hideLoading();
             })
             .catch(function(err) {
