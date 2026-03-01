@@ -334,8 +334,8 @@
                 return;
             }
             showLoading();
-            // Fetch user's discovered networks
-            var url = 'https://api.wigle.net/api/v2/network/map';
+            // WiGLE API v2 endpoint for user's networks
+            var url = 'https://api.wigle.net/api/v2/results/gpx';
             fetch(url, {
                 headers: {
                     'Authorization': 'Basic ' + btoa(apiKey + ':'),
@@ -343,28 +343,40 @@
                 }
             })
             .then(function(response) {
-                if (!response.ok) throw new Error('API request failed: ' + response.status);
+                if (!response.ok) {
+                    return response.text().then(function(text) {
+                        throw new Error('API error ' + response.status + ': ' + (text || response.statusText));
+                    });
+                }
                 return response.json();
             })
             .then(function(data) {
-                // Parse WiGLE response to our format
-                var results = data.results || [];
+                console.log('WiGLE response:', data);
+                // Handle different response formats
+                var results = data.results || data.networks || [];
+                if (!Array.isArray(results) || results.length === 0) {
+                    // Try alternative format
+                    if (data.totalResults) {
+                        results = data;
+                    }
+                }
                 if (results.length === 0) {
-                    showToast('No networks found', 'er');
+                    showToast('No networks found - check API key', 'er');
                     hideLoading();
                     return;
                 }
                 allNetworks = results.map(function(n) {
                     return {
-                        ssid: n.ssid || 'Unknown',
-                        bssid: n.bssid || '',
-                        lat: n.latitude,
-                        lon: n.longitude,
-                        signal: n.signal || -75,
-                        channel: n.channel || 0,
-                        security: n.encryption || n.authMode || 'Unknown'
+                        ssid: n.ssid || n.SSID || 'Unknown',
+                        bssid: n.bssid || n.BSSID || '',
+                        lat: n.lat || n.latitude || n.gpsLatitude,
+                        lon: n.lon || n.longitude || n.gpsLongitude,
+                        signal: n.signal || n.rssi || n.RSSI || -75,
+                        channel: n.channel || n.Channel || 0,
+                        security: n.security || n.encryption || n.authMode || 'Unknown'
                     };
-                });
+                }).filter(function(n) { return n.lat && n.lon; });
+                
                 filteredNetworks = allNetworks.slice();
                 updateStats();
                 renderMap();
@@ -373,7 +385,8 @@
                 hideLoading();
             })
             .catch(function(err) {
-                showToast('WiGLE fetch error: ' + err.message, 'er');
+                console.error('WiGLE error:', err);
+                showToast('WiGLE error: ' + err.message, 'er');
                 hideLoading();
             });
         }
